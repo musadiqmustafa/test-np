@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Playwright SDET Quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one narrow column — header, filter bar, one question card at a time, question map below. */
+:root {
+  --bg: #f3f6f2;
+  --surface: #ffffff;
+  --fg: #142019;
+  --muted: #5a6a60;
+  --line: #d7e0d9;
+  --accent: #2a7a45;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3f1e7;
+  --good: #1d7f45;
+  --good-soft: #e1f3e8;
+  --bad: #b8322c;
+  --bad-soft: #fbe7e5;
+  --easy: #2a7a45;
+  --med: #a35e12;
+  --hard: #b8322c;
+  --code-bg: #eef2ee;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1411; --surface: #161f1a; --fg: #e4ece6; --muted: #93a399; --line: #29352e;
+    --accent: #5cc17e; --accent-ink: #0b130e; --accent-soft: #1b3123;
+    --good: #55c482; --good-soft: #17301f; --bad: #ef6c62; --bad-soft: #3a1c1a;
+    --easy: #5cc17e; --med: #e0a050; --hard: #ef6c62; --code-bg: #1f2a24;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1411; --surface: #161f1a; --fg: #e4ece6; --muted: #93a399; --line: #29352e;
+  --accent: #5cc17e; --accent-ink: #0b130e; --accent-soft: #1b3123;
+  --good: #55c482; --good-soft: #17301f; --bad: #ef6c62; --bad-soft: #3a1c1a;
+  --easy: #5cc17e; --med: #e0a050; --hard: #ef6c62; --code-bg: #1f2a24;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 var(--font-body);
+}
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-block: 36px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+header h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(28px, 6vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  text-wrap: balance;
+}
+header h1 span { color: var(--accent); }
+header p { margin: 0; color: var(--muted); }
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button, .btn, .map button, .opt {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.seg button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 14px;
+}
+.seg button[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.stats b { color: var(--fg); }
+
+.progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.progress div { height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: clamp(18px, 4vw, 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.qnum { font-family: var(--font-mono); color: var(--muted); margin-right: 4px; }
+.chip {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.chip.E { color: var(--easy); }
+.chip.M { color: var(--med); }
+.chip.H { color: var(--hard); }
+.chip.two { color: var(--fg); background: var(--code-bg); border-color: var(--line); }
+
+h2.q {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(19px, 3.6vw, 23px);
+  line-height: 1.3;
+  margin: 0;
+  text-wrap: balance;
+}
+code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--code-bg);
+  padding: 1px 6px;
+  border-radius: 5px;
+  overflow-wrap: anywhere;
+}
+
+.opts { display: flex; flex-direction: column; gap: 10px; }
+.opt {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  transition: border-color .15s, background .15s;
+}
+.opt .txt { min-width: 0; }
+.opt .key {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.opt.multi .key { border-radius: 50%; }
+.opt .mark { font-weight: 700; width: 18px; text-align: center; }
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt.sel { border-color: var(--accent); background: var(--accent-soft); }
+.opt.sel .key { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.opt:disabled { cursor: default; }
+.opt.right { border-color: var(--good); background: var(--good-soft); }
+.opt.right .key { background: var(--good); color: var(--accent-ink); border-color: var(--good); }
+.opt.right .mark::after { content: "✓"; color: var(--good); }
+.opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.opt.wrong .key { background: var(--bad); color: #fff; border-color: var(--bad); }
+.opt.wrong .mark::after { content: "✗"; color: var(--bad); }
+
+.fb { border-radius: 11px; padding: 14px 16px; }
+.fb.ok { background: var(--good-soft); }
+.fb.no { background: var(--bad-soft); }
+.fb strong { display: block; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
+.fb.ok strong { color: var(--good); }
+.fb.no strong { color: var(--bad); }
+.fb p { margin: 0; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.hint { font-size: 14px; color: var(--muted); }
+.btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 500;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.small { padding: 5px 12px; font-size: 14px; border-radius: 999px; }
+
+.map-wrap h3, .results h3 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.map { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+.map button {
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.map button.ok { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.map button.no { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.map button.cur { outline: 2px solid var(--fg); outline-offset: 1px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--line); }
+.legend .lok { background: var(--good-soft); border-color: var(--good); }
+.legend .lno { background: var(--bad-soft); border-color: var(--bad); }
+
+.results { display: flex; flex-direction: column; gap: 22px; }
+.score { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.score .big { font-family: var(--font-display); font-weight: 800; font-size: clamp(48px, 12vw, 72px); line-height: 1; font-variant-numeric: tabular-nums; }
+.score .pct { font-size: 20px; font-weight: 600; color: var(--accent); }
+.score .note { flex-basis: 100%; color: var(--muted); }
+.breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.bd { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.bd .row { display: flex; justify-content: space-between; font-size: 14px; font-variant-numeric: tabular-nums; }
+.bd .track { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bd .track div { height: 100%; }
+.missed { display: flex; flex-direction: column; gap: 12px; }
+.miss { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.miss .mq { font-weight: 600; }
+.miss .line { font-size: 14px; }
+.miss .line b { font-weight: 600; }
+.miss .yours { color: var(--bad); }
+.miss .corr { color: var(--good); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.kbd { font-size: 13px; color: var(--muted); }
+.kbd kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 480px) { .kbd { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Playwright <span>SDET</span> Quiz</h1>
+    <p>50 concept questions, easy to hard. Questions marked “Choose 2” have two correct answers.</p>
+  </header>
+
+  <div class="bar">
+    <div class="seg" id="filters" role="group" aria-label="Filter by difficulty">
+      <button type="button" id="f-all" data-f="all">All</button>
+      <button type="button" id="f-E" data-f="E">Easy</button>
+      <button type="button" id="f-M" data-f="M">Medium</button>
+      <button type="button" id="f-H" data-f="H">Hard</button>
+      <button type="button" id="f-two" data-f="two">Choose 2</button>
+    </div>
+    <div class="stats">
+      <span id="stats"></span>
+      <button type="button" class="btn small" id="to-results">See results</button>
+    </div>
+  </div>
+
+  <div class="progress" aria-hidden="true"><div id="progress"></div></div>
+
+  <main class="card" id="quiz" aria-live="polite"></main>
+  <section class="card results" id="results" hidden></section>
+
+  <section class="map-wrap" aria-label="Question map">
+    <h3>Jump to a question</h3>
+    <div class="map" id="map"></div>
+    <div class="legend"><span><i class="lok"></i>Correct</span><span><i class="lno"></i>Wrong</span><span><i></i>Not answered</span></div>
+  </section>
+
+  <p class="kbd">Keyboard: <kbd>1</kbd>–<kbd>4</kbd> pick an answer, <kbd>Enter</kbd> check or go next, <kbd>←</kbd> <kbd>→</kbd> move between questions.</p>
+</div>
+
+<script>
+// d: E/M/H difficulty, m: two correct answers, a: indexes of correct options in o
+const QUESTIONS = [
+  {d:"E", q:"Which package is Playwright's built-in test runner?",
+   o:["`@playwright/test`","`playwright-runner`","`jest-playwright`","`@playwright/core-runner`"], a:[0],
+   e:"`@playwright/test` is the test runner. It includes `test`, `expect`, fixtures, parallel runs and reporters, so you don't need Jest or Mocha."},
+  {d:"E", q:"Which command creates a new Playwright project?",
+   o:["`npm init playwright@latest`","`npx playwright new`","`npm install playwright --init`","`npx create-playwright-app`"], a:[0],
+   e:"`npm init playwright@latest` asks a few questions, then creates `playwright.config.ts`, a tests folder and an example test, and can install the browsers."},
+  {d:"E", m:true, q:"Which TWO of these are browser engines Playwright supports out of the box?",
+   o:["Chromium","WebKit","Trident","Presto"], a:[0,1],
+   e:"Playwright supports Chromium, Firefox and WebKit. Trident (old Internet Explorer) and Presto (old Opera) are not supported."},
+  {d:"E", q:"Which command downloads the browsers Playwright needs?",
+   o:["`npx playwright install`","`npm install browsers`","`npx playwright download`","`npx playwright setup-browsers`"], a:[0],
+   e:"`npx playwright install` downloads the browser builds. On CI, `npx playwright install --with-deps` also installs the operating-system libraries the browsers need."},
+  {d:"E", q:"By default, how do Playwright tests run?",
+   o:["Headless, with no visible browser window","Headed, with a browser window open","Only in Chromium","One test at a time"], a:[0],
+   e:"Tests run headless by default. Add `--headed` to watch the browser."},
+  {d:"E", q:"What is a BrowserContext?",
+   o:["An isolated browser session, like an incognito window, with its own cookies and storage","A single tab in the browser","The browser process itself","The config file for the browser"], a:[0],
+   e:"The hierarchy is Browser → BrowserContext → Page. A context is an isolated session that holds pages and has its own cookies, localStorage and permissions."},
+  {d:"E", q:"Why does Playwright create a new BrowserContext for every test?",
+   o:["So tests are isolated and can't affect each other","To make the browser start faster","So tests can share a login session","Because one context can hold only one page"], a:[0],
+   e:"A fresh context means fresh cookies and storage for every test. That's test isolation, and it's what lets tests run in parallel safely. Contexts are cheap to create, so this costs very little."},
+  {d:"H", m:true, q:"Which TWO are valid fixture scopes in Playwright Test?",
+   o:["`'test'`","`'worker'`","`'suite'`","`'global'`"], a:[0,1],
+   e:"Test-scoped fixtures, like `page` and `context`, are created for each test. Worker-scoped fixtures, like `browser`, are created once per worker process and shared by the tests that worker runs."},
+  {d:"H", q:"Why can't you use the built-in `page` fixture inside `test.beforeAll`?",
+   o:["`page` is test-scoped, and `beforeAll` can only use worker-scoped fixtures such as `browser`","`beforeAll` cannot be async","`page` is only available in `afterAll`","`beforeAll` runs in a different browser"], a:[0],
+   e:"`beforeAll` runs once, before any single test exists, so it only gets worker-scoped fixtures. If you really need a page there, create one with `browser.newPage()` and close it in `afterAll`."},
+  {d:"M", q:"When does a Locator actually search the page for the element?",
+   o:["Every time an action or assertion uses it","Once, when the locator is created","Only when the page first loads","Only when you call `locator.find()`"], a:[0],
+   e:"Locators are lazy. Creating one does nothing; each `click()`, `fill()` or `expect()` queries the page again. That's why locators don't go stale when the page re-renders."},
+  {d:"M", q:"What does strict mode mean for locators?",
+   o:["An action fails with an error if the locator matches more than one element","Locators only accept CSS selectors","Every locator must use `getByRole`","Hidden elements can never be found"], a:[0],
+   e:"Actions need exactly one matching element, so Playwright never clicks the wrong one by guessing. Narrow the locator with `filter()`, chaining or a better role and name. Use `.first()` or `.nth()` only when position really is what you mean."},
+  {d:"E", q:"Which locator does Playwright recommend trying first?",
+   o:["`page.getByRole()`","`page.locator('xpath=...')`","`page.locator('#id')`","`page.getByTestId()`"], a:[0],
+   e:"`getByRole` finds elements the way users and screen readers see them (role plus accessible name), so it survives DOM and CSS changes. CSS and XPath are the last resort."},
+  {d:"M", q:"By default, which attribute does `getByTestId()` look for?",
+   o:["`data-testid`","`data-test`","`id`","`test-id`"], a:[0],
+   e:"The default attribute is `data-testid`. You can change it in the config with `testIdAttribute`."},
+  {d:"H", q:"Which config option changes the attribute that `getByTestId()` looks for?",
+   o:["`use: { testIdAttribute: 'data-test' }`","`use: { testId: 'data-test' }`","`locators: { testId: 'data-test' }`","`expect: { testIdAttribute: 'data-test' }`"], a:[0],
+   e:"Set `testIdAttribute` under `use` in `playwright.config.ts`. You can also call `selectors.setTestIdAttribute('data-test')`."},
+  {d:"M", q:"What does `locator.filter({ hasText: 'Backpack' })` do?",
+   o:["Keeps only the matched elements that contain the text 'Backpack' somewhere inside them","Finds only an element whose whole text is exactly 'Backpack'","Types 'Backpack' into the element","Hides every element except 'Backpack'"], a:[0],
+   e:"`filter({ hasText })` narrows a list, such as product cards, to the ones that contain that text anywhere inside, including in child elements. Then you chain into the card you kept, for example `.getByRole('button')`."},
+  {d:"H", m:true, q:"Which TWO correctly get a locator for content inside an iframe?",
+   o:["`page.frameLocator('#payment')`","`page.locator('#payment').contentFrame()`","`page.switchTo().frame('payment')`","`page.iframe('#payment')`"], a:[0,1],
+   e:"`frameLocator()` and `locator().contentFrame()` both return a FrameLocator you can chain into, for example `.getByRole('button')`. `switchTo().frame()` is Selenium syntax, not Playwright."},
+  {d:"M", q:"What is the difference between `fill()` and `pressSequentially()`?",
+   o:["`fill()` sets the whole value at once; `pressSequentially()` types one character at a time with key events","They do exactly the same thing","`fill()` types slowly; `pressSequentially()` pastes the value","`pressSequentially()` only works on buttons"], a:[0],
+   e:"Use `fill()` for normal inputs. Use `pressSequentially()` when the page reacts to each key press, such as an autocomplete. The old `type()` method is deprecated in its favour."},
+  {d:"M", m:true, q:"Which TWO assertions automatically retry until they pass or time out?",
+   o:["`await expect(locator).toBeVisible()`","`await expect(locator).toHaveText('Hi')`","`expect(await locator.isVisible()).toBe(true)`","`expect(await locator.textContent()).toBe('Hi')`"], a:[0,1],
+   e:"Web-first assertions receive the locator itself, so Playwright can check the page again and again. When you `await` a value first (`isVisible()`, `textContent()`), `expect` only gets a fixed value and checks it once."},
+  {d:"M", q:"Which of these does NOT wait, and returns its result immediately?",
+   o:["`locator.isVisible()`","`locator.click()`","`locator.fill('abc')`","`await expect(locator).toBeVisible()`"], a:[0],
+   e:"`isVisible()` reports whether the element is visible right now and never waits. Actions like `click()` and `fill()` auto-wait, and so do web-first assertions."},
+  {d:"M", q:"Before clicking, Playwright runs actionability checks. Which of these is NOT one of them?",
+   o:["The element has a unique id attribute","The element is visible","The element is stable, not animating","The element is enabled"], a:[0],
+   e:"For `click()`, Playwright waits until the element is visible, stable, enabled and able to receive events (not covered by something else). It never checks the id attribute."},
+  {d:"M", q:"What is the default timeout for a whole test?",
+   o:["30 seconds","5 seconds","60 seconds","No limit"], a:[0],
+   e:"Each test gets 30 seconds by default. Change it with `timeout` in the config, or with `test.setTimeout()` inside one test."},
+  {d:"M", q:"What is the default timeout for a web-first assertion like `toBeVisible()`?",
+   o:["5 seconds","30 seconds","1 second","10 seconds"], a:[0],
+   e:"Assertions retry for 5 seconds by default. Change it globally with `expect: { timeout: 10000 }`, or for one check with `toBeVisible({ timeout: 10000 })`."},
+  {d:"E", q:"How do you write a soft assertion?",
+   o:["`await expect.soft(locator).toBeVisible()`","`await expect(locator).soft().toBeVisible()`","`await softExpect(locator).toBeVisible()`","`await expect(locator).toBeVisible({ soft: true })`"], a:[0],
+   e:"A failing soft assertion is recorded, but the test keeps running. All failures are reported at the end, and the test is still marked as failed."},
+  {d:"H", q:"Which assertion retries a non-locator value, like an API status code, until it matches?",
+   o:["`await expect.poll(async () => getStatus()).toBe(200)`","`await expect(getStatus()).toBe(200)`","`await expect.retry(getStatus).toBe(200)`","`await expect(getStatus).eventually.toBe(200)`"], a:[0],
+   e:"`expect.poll()` calls your function repeatedly until the value matches or the timeout runs out. Use it for values that aren't on the page, like API responses or database rows."},
+  {d:"H", q:"Which syntax retries a whole block of code until every assertion inside it passes?",
+   o:["`await expect(async () => { ... }).toPass()`","`await test.retry(async () => { ... })`","`await expect.all(async () => { ... })`","`await expect(async () => { ... }).toRetry()`"], a:[0],
+   e:"`toPass()` re-runs the block until it stops throwing. It's useful when several steps must succeed together. It has no timeout of its own by default (only the test timeout applies), so pass `{ timeout }` if you want one."},
+  {d:"M", m:true, q:"Which TWO correctly check that an element is NOT visible?",
+   o:["`await expect(locator).not.toBeVisible()`","`await expect(locator).toBeHidden()`","`await expect(locator).toBeInvisible()`","`await expect(locator).isHidden()`"], a:[0,1],
+   e:"`.not` flips any assertion, and `toBeHidden()` is the built-in opposite of `toBeVisible()`. Both retry until the element disappears. `toBeInvisible()` doesn't exist, and `isHidden()` is a locator method, not an assertion."},
+  {d:"E", q:"Which hook runs only once, before all the tests in a file or `describe` group?",
+   o:["`test.beforeAll`","`test.beforeEach`","`test.setup`","`test.init`"], a:[0],
+   e:"`beforeAll` runs once for the group, and `beforeEach` runs before every test. Each worker process runs `beforeAll` separately."},
+  {d:"E", q:"In what order do hooks run for a group with one test?",
+   o:["beforeAll → beforeEach → test → afterEach → afterAll","beforeEach → beforeAll → test → afterAll → afterEach","beforeAll → test → beforeEach → afterEach → afterAll","test → beforeAll → beforeEach → afterEach → afterAll"], a:[0],
+   e:"The 'All' hooks wrap the whole group, and the 'Each' hooks wrap every single test. `afterEach` and `afterAll` still run when a test fails."},
+  {d:"H", q:"With `test.describe.configure({ mode: 'serial' })`, what happens when one test in the group fails?",
+   o:["The remaining tests in the group are skipped","The remaining tests still run normally","The whole test run stops","The failed test is retried until it passes"], a:[0],
+   e:"Serial mode is for tests that depend on each other. When one fails, the rest are skipped, and on retry the whole group runs again together. Use it sparingly, because independent tests are better."},
+  {d:"M", q:"In a custom fixture, when does the code after `await use(value)` run?",
+   o:["After the test finishes, as teardown","Before the test starts","Only if the test fails","It never runs"], a:[0],
+   e:"Code before `use()` is setup, `use()` hands the value to the test, and code after it is cleanup. Custom fixtures are created with `test.extend()`."},
+  {d:"E", q:"What does `test.only` do?",
+   o:["Runs only the tests marked with `.only`","Runs the test only once, with no retries","Runs the test only in Chromium","Skips the test"], a:[0],
+   e:"It's handy while debugging, but don't commit it. If you forget, CI runs just that test."},
+  {d:"H", q:"Which config option makes the run fail if `test.only` is left in the code?",
+   o:["`forbidOnly: true`","`noOnly: true`","`strictOnly: true`","`failOnOnly: true`"], a:[0],
+   e:"The generated config sets `forbidOnly: !!process.env.CI`, so a stray `test.only` fails the CI run instead of silently skipping every other test."},
+  {d:"M", q:"Which syntax adds a `@smoke` tag to a test?",
+   o:["`test('login', { tag: '@smoke' }, async ({ page }) => { ... })`","`test.tag('@smoke')('login', async ({ page }) => { ... })`","`test('login', async ({ page }) => { ... }).tag('@smoke')`","`@smoke test('login', async ({ page }) => { ... })`"], a:[0],
+   e:"Pass `{ tag: '@smoke' }`, or an array of tags, as the second argument. Writing `@smoke` inside the test title also works."},
+  {d:"H", m:true, q:"Which TWO commands run only the tests tagged `@smoke`?",
+   o:["`npx playwright test --grep @smoke`","`npx playwright test -g @smoke`","`npx playwright test --tag smoke`","`npx playwright test --only @smoke`"], a:[0,1],
+   e:"`-g` is the short form of `--grep`. Use `--grep-invert @smoke` to run everything except the smoke tests."},
+  {d:"H", q:"What does `fullyParallel: true` change?",
+   o:["Tests inside the same file also run in parallel, not just separate files","Every browser in `projects` starts at the same moment","Retries run in parallel with the first attempt","It turns on sharding automatically"], a:[0],
+   e:"Without it, different files run in parallel but the tests within one file run in order, in one worker. With it, individual tests are spread across all workers."},
+  {d:"M", q:"Without any parallel settings, how do the tests inside ONE file run?",
+   o:["One after another, in order, in the same worker","All at the same time","In random order","Each in its own browser process at once"], a:[0],
+   e:"Files run in parallel across workers, but the tests in one file run in order. Use `fullyParallel: true` or `test.describe.configure({ mode: 'parallel' })` to change this."},
+  {d:"E", q:"Which config option sets how many tests run in parallel?",
+   o:["`workers`","`threads`","`parallel`","`instances`"], a:[0],
+   e:"`workers` is the number of worker processes. You can also pass `--workers=4` on the command line. The generated config uses 1 worker on CI."},
+  {d:"M", q:"Which command-line option splits a test suite across several CI machines?",
+   o:["`--shard=1/3`","`--workers=3`","`--split=3`","`--parallel=3`"], a:[0],
+   e:"Run `--shard=1/3`, `--shard=2/3` and `--shard=3/3`, one on each machine. Workers are processes on one machine; shards are separate machines. Merge the shard reports with `npx playwright merge-reports`."},
+  {d:"M", q:"What does Playwright call a test that fails first and then passes on a retry?",
+   o:["Flaky","Passed","Failed","Skipped"], a:[0],
+   e:"The report marks it as flaky. The run still passes, but the test needs investigating. Set retries with `retries: 2` in the config or `--retries=2` on the command line."},
+  {d:"M", q:"What is `projects` in `playwright.config.ts` used for?",
+   o:["Running the same tests with different settings, such as different browsers or devices","Listing separate npm packages","Grouping test files into folders","Storing test data for each project"], a:[0],
+   e:"Each project is a named setup, like `chromium`, `firefox`, `webkit` or a mobile device. Projects can also depend on each other, for example a login setup project that runs first."},
+  {d:"M", q:"What does `baseURL` in the config let you do?",
+   o:["Use relative URLs, like `page.goto('/cart')`","Block requests to other domains","Set the URL the HTML report is published to","Open several URLs at once"], a:[0],
+   e:"Relative URLs are resolved against `baseURL`, so switching between environments, such as dev and staging, only means changing one config value."},
+  {d:"M", q:"What does `trace: 'on-first-retry'` do?",
+   o:["Records a trace only when a failed test is retried for the first time","Records a trace for every test","Records a trace only for the first test in the run","Retries a test once if tracing fails"], a:[0],
+   e:"It's the recommended CI setting: no tracing cost for passing tests, and a full trace (DOM snapshots, network, console, actions) whenever something fails and is retried."},
+  {d:"M", q:"Which command opens a saved trace file?",
+   o:["`npx playwright show-trace trace.zip`","`npx playwright open trace.zip`","`npx playwright trace --view`","`npx playwright show-report trace.zip`"], a:[0],
+   e:"Trace Viewer lets you step through every action with DOM snapshots, network calls and console logs. You can also open traces from the HTML report."},
+  {d:"E", q:"Which command opens UI mode?",
+   o:["`npx playwright test --ui`","`npx playwright ui`","`npx playwright test --debug`","`npx playwright test --watch`"], a:[0],
+   e:"UI mode lets you run, watch and time-travel through tests. `--debug` opens the Playwright Inspector instead, which steps through one action at a time."},
+  {d:"E", q:"Which command opens a browser and writes test code as you click around?",
+   o:["`npx playwright codegen`","`npx playwright record`","`npx playwright generate`","`npx playwright test --record`"], a:[0],
+   e:"`npx playwright codegen https://example.com` records your actions and suggests good locators. It's useful for finding locators even if you rewrite the code afterwards."},
+  {d:"M", q:"Inside `page.route()`, which method returns a mocked response without calling the real server?",
+   o:["`route.fulfill()`","`route.continue()`","`route.abort()`","`route.mock()`"], a:[0],
+   e:"`fulfill()` answers with your own status and body, `continue()` sends the request on to the real server (optionally modified), and `abort()` blocks it. `route.mock()` doesn't exist."},
+  {d:"E", q:"Which built-in fixture sends API requests without opening a page?",
+   o:["`request`","`page`","`api`","`http`"], a:[0],
+   e:"The `request` fixture is an APIRequestContext: `await request.get('/api/users')`. It uses `baseURL` from the config and is handy for API tests and for creating test data quickly."},
+  {d:"H", m:true, q:"Which TWO does `context.storageState()` save?",
+   o:["Cookies","localStorage","sessionStorage","Browser history"], a:[0,1],
+   e:"`storageState()` saves cookies and localStorage (plus IndexedDB if you pass `indexedDB: true`). It does NOT save sessionStorage, so an app that keeps its login there needs extra handling."},
+  {d:"H", q:"What does Playwright do with an `alert()` or `confirm()` dialog when no dialog handler is registered?",
+   o:["Dismisses it automatically","Accepts it automatically","Waits until the test times out","Fails the test immediately"], a:[0],
+   e:"Dialogs are auto-dismissed by default. To accept one or read its message, register `page.on('dialog', d => d.accept())` BEFORE the action that opens it."},
+  {d:"H", m:true, q:"Which TWO wait for a new tab or popup to open?",
+   o:["`context.waitForEvent('page')`","`page.waitForEvent('popup')`","`page.switchToWindow(1)`","`browser.waitForTab()`"], a:[0,1],
+   e:"Start waiting before you click: `const popupPromise = page.waitForEvent('popup'); await link.click(); const popup = await popupPromise;`. `context.waitForEvent('page')` catches any new page in that context."}
+];
+
+const LABEL = { E: "Easy", M: "Medium", H: "Hard" };
+const KEY = "pw-sdet-quiz-v1";
+
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function fmt(s) { return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>"); }
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function freshState() { return { filter: "all", pos: 0, view: "quiz", retry: null, order: {}, ans: {} }; }
+let S = freshState();
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (saved && saved.ans && saved.order) S = Object.assign(freshState(), saved);
+} catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+function deck() {
+  if (S.retry && S.retry.length) return S.retry;
+  return QUESTIONS.map((q, i) => i).filter(i => {
+    const q = QUESTIONS[i];
+    if (S.filter === "all") return true;
+    if (S.filter === "two") return !!q.m;
+    return q.d === S.filter;
+  });
+}
+function optOrder(qi) {
+  if (!S.order[qi]) S.order[qi] = shuffle(QUESTIONS[qi].o.map((o, i) => i));
+  return S.order[qi];
+}
+function isRight(qi, sel) {
+  const a = QUESTIONS[qi].a;
+  return sel.length === a.length && sel.every(x => a.includes(x));
+}
+
+const $quiz = document.getElementById("quiz");
+const $results = document.getElementById("results");
+const $map = document.getElementById("map");
+
+function render(focusPrimary) {
+  const d = deck();
+  if (S.pos >= d.length) S.pos = d.length - 1;
+  if (S.pos < 0) S.pos = 0;
+  $quiz.hidden = S.view !== "quiz";
+  $results.hidden = S.view !== "results";
+  if (S.view === "quiz") renderQuestion(d); else renderResults(d);
+  renderMap(d);
+  renderStats(d);
+  document.querySelectorAll("#filters button").forEach(b =>
+    b.setAttribute("aria-pressed", String(!S.retry && b.dataset.f === S.filter)));
+  save();
+  if (focusPrimary) { const p = document.getElementById("primary"); if (p) p.focus(); }
+}
+
+function renderQuestion(d) {
+  if (!d.length) { $quiz.innerHTML = "<p>No questions match this filter.</p>"; return; }
+  const qi = d[S.pos], q = QUESTIONS[qi], order = optOrder(qi);
+  const st = S.ans[qi] || { sel: [], done: false };
+  const need = q.m ? 2 : 1;
+  const opts = order.map((oi, k) => {
+    const picked = st.sel.includes(oi);
+    let cls = "opt" + (q.m ? " multi" : "");
+    if (st.done) {
+      if (q.a.includes(oi)) cls += " right";
+      else if (picked) cls += " wrong";
+    } else if (picked) cls += " sel";
+    return `<button type="button" id="opt-${qi}-${oi}" class="${cls}" data-oi="${oi}" role="${q.m ? "checkbox" : "radio"}" aria-checked="${picked}" ${st.done ? "disabled" : ""}>
+      <span class="key">${"ABCD"[k]}</span><span class="txt">${fmt(q.o[oi])}</span><span class="mark" aria-hidden="true"></span></button>`;
+  }).join("");
+
+  let fb = "";
+  if (st.done) {
+    const ok = isRight(qi, st.sel);
+    fb = `<div class="fb ${ok ? "ok" : "no"}"><strong>${ok ? "Correct" : "Not quite"}</strong><p>${fmt(q.e)}</p></div>`;
+  }
+  const last = S.pos === d.length - 1;
+  let primary, hint = "";
+  if (!st.done) {
+    primary = `<button type="button" class="btn primary" id="primary" data-act="check" ${st.sel.length === need ? "" : "disabled"}>Check answer</button>`;
+    if (q.m) hint = `<span class="hint">${st.sel.length} of 2 picked</span>`;
+  } else {
+    primary = `<button type="button" class="btn primary" id="primary" data-act="${last ? "results" : "next"}">${last ? "See results" : "Next question"}</button>`;
+  }
+
+  $quiz.innerHTML = `
+    <div class="meta"><span class="qnum">Q${S.pos + 1} / ${d.length}</span>
+      <span class="chip ${q.d}">${LABEL[q.d]}</span>${q.m ? '<span class="chip two">Choose 2</span>' : ""}</div>
+    <h2 class="q">${fmt(q.q)}</h2>
+    <div class="opts" role="${q.m ? "group" : "radiogroup"}" aria-label="Answers">${opts}</div>
+    ${fb}
+    <div class="controls">
+      <button type="button" class="btn" id="prev" data-act="prev" ${S.pos === 0 ? "disabled" : ""}>Previous</button>
+      ${hint}
+      ${primary}
+    </div>`;
+}
+
+function renderResults(d) {
+  const answered = d.filter(i => S.ans[i] && S.ans[i].done);
+  const right = answered.filter(i => isRight(i, S.ans[i].sel));
+  const wrong = answered.filter(i => !isRight(i, S.ans[i].sel));
+  const skipped = d.length - answered.length;
+  const pct = d.length ? Math.round(right.length / d.length * 100) : 0;
+  const verdict = pct >= 85 ? "Interview ready. Review the misses and you're set."
+    : pct >= 65 ? "Solid base. Go back over the topics you missed."
+    : "Keep practising. Read each explanation, then retry the ones you missed.";
+
+  const bd = ["E", "M", "H"].map(lv => {
+    const all = d.filter(i => QUESTIONS[i].d === lv);
+    if (!all.length) return "";
+    const r = all.filter(i => S.ans[i] && S.ans[i].done && isRight(i, S.ans[i].sel)).length;
+    const color = lv === "E" ? "var(--easy)" : lv === "M" ? "var(--med)" : "var(--hard)";
+    return `<div class="bd"><div class="row"><span>${LABEL[lv]}</span><b>${r} / ${all.length}</b></div>
+      <div class="track"><div style="width:${Math.round(r / all.length * 100)}%;background:${color}"></div></div></div>`;
+  }).join("");
+
+  const miss = wrong.map(i => {
+    const q = QUESTIONS[i];
+    return `<div class="miss"><span class="mq">${fmt(q.q)}</span>
+      <span class="line yours"><b>Your answer:</b> ${S.ans[i].sel.map(x => fmt(q.o[x])).join(" + ")}</span>
+      <span class="line corr"><b>Correct:</b> ${q.a.map(x => fmt(q.o[x])).join(" + ")}</span>
+      <span class="line">${fmt(q.e)}</span></div>`;
+  }).join("");
+
+  $results.innerHTML = `
+    <div class="score"><span class="big">${right.length}<span style="color:var(--muted);font-size:.5em"> / ${d.length}</span></span>
+      <span class="pct">${pct}%</span>
+      <span class="note">${verdict}${skipped ? ` You haven't answered ${skipped} question${skipped > 1 ? "s" : ""} yet.` : ""}</span></div>
+    <div><h3>By difficulty</h3><div class="breakdown">${bd}</div></div>
+    ${wrong.length ? `<div><h3>Questions you missed (${wrong.length})</h3><div class="missed">${miss}</div></div>` : ""}
+    <div class="actions">
+      ${wrong.length ? '<button type="button" class="btn primary" id="primary" data-act="retry">Retry the ones I missed</button>' : ""}
+      <button type="button" class="btn" id="back" data-act="back">Back to questions</button>
+      <button type="button" class="btn" id="restart" data-act="restart">Start over</button>
+    </div>`;
+}
+
+function renderMap(d) {
+  $map.innerHTML = d.map((qi, k) => {
+    const st = S.ans[qi];
+    let cls = st && st.done ? (isRight(qi, st.sel) ? "ok" : "no") : "";
+    if (k === S.pos && S.view === "quiz") cls += " cur";
+    return `<button type="button" id="map-${qi}" class="${cls}" data-k="${k}" aria-label="Question ${k + 1}">${k + 1}</button>`;
+  }).join("");
+}
+
+function renderStats(d) {
+  const answered = d.filter(i => S.ans[i] && S.ans[i].done);
+  const right = answered.filter(i => isRight(i, S.ans[i].sel)).length;
+  const label = S.retry ? "Retrying missed · " : "";
+  document.getElementById("stats").innerHTML = `${label}<b>${right}</b> correct · <b>${answered.length}</b> / ${d.length} answered`;
+  document.getElementById("progress").style.width = (d.length ? answered.length / d.length * 100 : 0) + "%";
+}
+
+function pick(oi) {
+  const d = deck(), qi = d[S.pos], q = QUESTIONS[qi];
+  const st = S.ans[qi] || (S.ans[qi] = { sel: [], done: false });
+  if (st.done) return;
+  if (q.m) {
+    if (st.sel.includes(oi)) st.sel = st.sel.filter(x => x !== oi);
+    else { st.sel.push(oi); if (st.sel.length > 2) st.sel.shift(); }
+  } else st.sel = [oi];
+  render();
+}
+
+function act(a) {
+  const d = deck();
+  if (a === "check") {
+    const qi = d[S.pos], st = S.ans[qi], need = QUESTIONS[qi].m ? 2 : 1;
+    if (!st || st.sel.length !== need) return;
+    st.done = true;
+    render(true);
+  } else if (a === "next") { S.pos++; render(true); }
+  else if (a === "prev") { S.pos--; render(); }
+  else if (a === "results") { S.view = "results"; render(true); window.scrollTo(0, 0); }
+  else if (a === "back") { S.view = "quiz"; render(); }
+  else if (a === "retry") {
+    const wrong = d.filter(i => S.ans[i] && S.ans[i].done && !isRight(i, S.ans[i].sel));
+    wrong.forEach(i => { delete S.ans[i]; delete S.order[i]; });
+    S.retry = wrong; S.pos = 0; S.view = "quiz"; render(true);
+  } else if (a === "restart") {
+    const keepFilter = S.filter;
+    S = freshState(); S.filter = keepFilter; render(true);
+  }
+}
+
+$quiz.addEventListener("click", e => {
+  const o = e.target.closest(".opt"); if (o) return pick(Number(o.dataset.oi));
+  const b = e.target.closest("[data-act]"); if (b && !b.disabled) act(b.dataset.act);
+});
+$results.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (b) act(b.dataset.act);
+});
+$map.addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]"); if (!b) return;
+  S.pos = Number(b.dataset.k); S.view = "quiz"; render();
+});
+document.getElementById("filters").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]"); if (!b) return;
+  S.filter = b.dataset.f; S.retry = null; S.pos = 0; S.view = "quiz"; render();
+});
+document.getElementById("to-results").addEventListener("click", () => act("results"));
+
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || S.view !== "quiz") return;
+  const d = deck(); if (!d.length) return;
+  const k = "1234".indexOf(e.key) >= 0 ? "1234".indexOf(e.key) : "abcd".indexOf(e.key.toLowerCase());
+  if (e.key.length === 1 && k >= 0) {
+    const order = optOrder(d[S.pos]);
+    if (k < order.length) { e.preventDefault(); pick(order[k]); }
+  } else if (e.key === "Enter") {
+    const p = document.getElementById("primary");
+    if (p && !p.disabled && document.activeElement !== p) { e.preventDefault(); act(p.dataset.act); }
+  } else if (e.key === "ArrowRight" && S.pos < d.length - 1) { S.pos++; render(); }
+  else if (e.key === "ArrowLeft" && S.pos > 0) { S.pos--; render(); }
+});
+
+render();
+</script>
+</body>
+</html>
