@@ -19,7 +19,7 @@ test('Verify login', async ({ page }) => {
   await page.getByRole('link', { name: 'Login' }).click();
 
 });
-test.only ('Verfiy logged in user',async ({page})=>{
+test ('Verfiy logged in user',async ({page})=>{
   await page.goto(process.env.URL);
   await page.getByRole('link',{name:'Login'}).click()
   await expect(page.getByRole('heading',{name:'Log in'})).toBeVisible();
